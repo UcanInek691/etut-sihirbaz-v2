@@ -36,11 +36,12 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   const [selectedTeacher, setSelectedTeacher] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<string>('');
 
-  // Zaman slotları (08:00-17:20, 40dk + 10dk ara)
+  // Zaman slotları (08:00-21:00, 40dk + 10dk ara)
   const timeSlots = [
     '08:00-08:40', '08:50-09:30', '09:40-10:20', '10:30-11:10',
     '11:20-12:00', '12:10-12:50', '13:00-13:40', '13:50-14:30',
-    '14:40-15:20', '15:30-16:10', '16:20-17:00', '17:10-17:50'
+    '14:40-15:20', '15:30-16:10', '16:20-17:00', '17:10-17:50',
+    '18:00-18:40', '18:50-19:30', '19:40-20:20', '20:30-21:10'
   ];
 
   // Hafta günleri
