@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
-import { Calendar, Clock, Users, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, Users, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -122,11 +122,15 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
 
   // Öğrenci gelmedi işaretleme
   const markStudentAbsent = (sessionId: string) => {
-    const updatedSessions = sessions.map(session => {
-      if (session.id === sessionId) {
-        return { ...session, status: 'absent' as const };
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    const student = students.find(s => s.id === session.studentId);
+    const updatedSessions = sessions.map(s => {
+      if (s.id === sessionId) {
+        return { ...s, status: 'absent' as const };
       }
-      return session;
+      return s;
     });
 
     setSessions(updatedSessions);
@@ -136,26 +140,45 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
 
     toast({
       title: "Devamsızlık İşaretlendi",
-      description: "Öğrenci 2 hafta yasaklandı.",
+      description: `${student?.name} 2 hafta yasaklandı.`,
       variant: "destructive"
     });
   };
 
-  // Belirli gün ve saat için sessioni getir
-  const getSessionForSlot = (day: number, timeSlot: string): Session | undefined => {
+  // Etüt tamamlama
+  const markSessionCompleted = (sessionId: string) => {
+    const updatedSessions = sessions.map(session => {
+      if (session.id === sessionId) {
+        return { ...session, status: 'completed' as const };
+      }
+      return session;
+    });
+
+    setSessions(updatedSessions);
+    excelManager.autoSaveAllExcelFiles(updatedSessions, teachers, students);
+
+    toast({
+      title: "Etüt Tamamlandı",
+      description: "Etüt başarıyla tamamlandı olarak işaretlendi.",
+      variant: "default"
+    });
+  };
+
+  // Belirli gün ve saat için sessionları getir (birden fazla olabilir)
+  const getSessionsForSlot = (day: number, timeSlot: string): Session[] => {
     const targetDate = addDays(weekStart, day);
-    return sessions.find(session => 
+    return sessions.filter(session => 
       format(session.date, 'yyyy-MM-dd') === format(targetDate, 'yyyy-MM-dd') &&
       session.timeSlot === timeSlot
     );
   };
 
-  // Session kartı render et
-  const renderSessionCard = (session: Session | undefined, day: number, timeSlot: string) => {
-    if (!session) {
+  // Session kartları render et (birden fazla session olabilir)
+  const renderSessionCards = (slotSessions: Session[], day: number, timeSlot: string) => {
+    if (slotSessions.length === 0) {
       return (
         <div 
-          className="h-16 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          className="h-20 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors"
           onClick={() => {
             setSelectedTimeSlot(timeSlot);
             setSelectedDate_(addDays(weekStart, day));
@@ -167,9 +190,6 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       );
     }
 
-    const teacher = teachers.find(t => t.id === session.teacherId);
-    const student = students.find(s => s.id === session.studentId);
-    
     const statusColors = {
       scheduled: 'bg-blue-100 border-blue-300 text-blue-800',
       completed: 'bg-green-100 border-green-300 text-green-800',
@@ -177,26 +197,63 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     };
 
     return (
-      <Card className={`h-16 ${statusColors[session.status]} border-2 cursor-pointer hover:shadow-md transition-shadow`}>
-        <CardContent className="p-2">
-          <div className="text-xs font-medium">{teacher?.name}</div>
-          <div className="text-xs">{student?.name}</div>
-          <div className="text-xs text-gray-600">{session.subject}</div>
-          {session.status === 'scheduled' && (
-            <Button
-              size="sm"
-              variant="destructive"
-              className="absolute top-1 right-1 h-4 w-4 p-0 opacity-0 hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                markStudentAbsent(session.id);
-              }}
-            >
-              ✕
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-1 min-h-20">
+        {slotSessions.map(session => {
+          const teacher = teachers.find(t => t.id === session.teacherId);
+          const student = students.find(s => s.id === session.studentId);
+          
+          return (
+            <Card key={session.id} className={`${statusColors[session.status]} border relative group hover:shadow-md transition-shadow`}>
+              <CardContent className="p-2">
+                <div className="text-xs font-medium truncate">{teacher?.name}</div>
+                <div className="text-xs truncate">{student?.name}</div>
+                <div className="text-xs text-gray-600 truncate">{session.subject}</div>
+                
+                {session.status === 'scheduled' && (
+                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-5 w-5 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markStudentAbsent(session.id);
+                      }}
+                      title="Etüte Gelmedi"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-5 w-5 p-0 bg-green-600 hover:bg-green-700"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markSessionCompleted(session.id);
+                      }}
+                      title="Etüt Tamamlandı"
+                    >
+                      <CheckCircle className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+        
+        {/* Yeni etüt ekleme butonu */}
+        <div 
+          className="h-8 border border-dashed border-gray-300 rounded flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+          onClick={() => {
+            setSelectedTimeSlot(timeSlot);
+            setSelectedDate_(addDays(weekStart, day));
+            setIsAssignDialogOpen(true);
+          }}
+        >
+          <span className="text-gray-500 text-xs">+ Ekle</span>
+        </div>
+      </div>
     );
   };
 
@@ -277,7 +334,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
                 </div>
                 {weekDays.map((_, dayIndex) => (
                   <div key={`${timeSlot}-${dayIndex}`} className="p-1">
-                    {renderSessionCard(getSessionForSlot(dayIndex, timeSlot), dayIndex, timeSlot)}
+                    {renderSessionCards(getSessionsForSlot(dayIndex, timeSlot), dayIndex, timeSlot)}
                   </div>
                 ))}
               </React.Fragment>

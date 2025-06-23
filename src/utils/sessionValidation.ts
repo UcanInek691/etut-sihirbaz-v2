@@ -85,6 +85,7 @@ export const isStudentBanned = (student: Student): boolean => {
 
 /**
  * Öğretmen müsait mi kontrol et
+ * GÜNCELLENDİ: Aynı saatte sadece aynı öğretmen çakışması kontrol edilir
  */
 export const isTeacherAvailable = (
   teacherId: string,
@@ -92,7 +93,7 @@ export const isTeacherAvailable = (
   date: Date,
   existingSessions: Session[]
 ): boolean => {
-  // Aynı zaman diliminde öğretmenin başka etütü var mı?
+  // Aynı zaman diliminde AYNI öğretmenin başka etütü var mı?
   const conflictingSession = existingSessions.find(session =>
     session.teacherId === teacherId &&
     session.timeSlot === timeSlot &&
@@ -103,20 +104,35 @@ export const isTeacherAvailable = (
 };
 
 /**
- * Zaman slotu dolu mu kontrol et
+ * Öğrenci aynı saatte başka etütte mi kontrol et
+ */
+export const isStudentAvailable = (
+  studentId: string,
+  timeSlot: string,
+  date: Date,
+  existingSessions: Session[]
+): boolean => {
+  // Aynı zaman diliminde bu öğrencinin başka etütü var mı?
+  const conflictingSession = existingSessions.find(session =>
+    session.studentId === studentId &&
+    session.timeSlot === timeSlot &&
+    format(session.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+  );
+  
+  return !conflictingSession;
+};
+
+/**
+ * Zaman slotu dolu mu kontrol et - KALDIRILDI
+ * Artık sınırsız öğretmen aynı saatte ders verebilir
  */
 export const isTimeSlotFull = (
   timeSlot: string,
   date: Date,
   existingSessions: Session[],
-  maxStudentsPerSlot: number = 30
+  maxStudentsPerSlot: number = 999 // Pratik olarak sınırsız
 ): boolean => {
-  const sessionsInSlot = existingSessions.filter(session =>
-    session.timeSlot === timeSlot &&
-    format(session.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-  );
-  
-  return sessionsInSlot.length >= maxStudentsPerSlot;
+  return false; // Artık hiçbir zaman dolu olmayacak
 };
 
 /**
@@ -161,11 +177,11 @@ export const validateSessionAssignment = (
     };
   }
   
-  // 4. Zaman slotu dolu mu?
-  if (isTimeSlotFull(timeSlot, date, existingSessions)) {
+  // 4. Öğrenci müsait mi?
+  if (!isStudentAvailable(studentId, timeSlot, date, existingSessions)) {
     return { 
       valid: false, 
-      message: `❌ Bu zaman dilimi dolu! (Max 30 öğrenci)` 
+      message: `❌ ${student.name} bu saatte başka etüt alıyor!` 
     };
   }
   
