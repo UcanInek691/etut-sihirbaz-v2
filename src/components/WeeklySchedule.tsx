@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from '@/hooks/use-toast';
 import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student } from '@/utils/sessionValidation';
 import { LocalStorageManager } from '@/utils/localStorage';
+import { TimeSlotManager } from '@/utils/timeSlotManager';
 
 interface WeeklyScheduleProps {
   selectedDate: Date;
@@ -36,15 +37,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<string>('');
-
-  // Zaman slotları (09:30-20:00, 40dk + 10dk ara)
-  const timeSlots = [
-    '09:30-10:10', '10:20-11:00', '11:10-11:50', 
-    '12:00-12:40', '12:50-13:30', '13:40-14:20', 
-    '14:30-15:10', '15:20-16:00', '16:10-16:50', 
-    '17:00-17:40', '17:50-18:30', '18:40-19:20', 
-    '19:30-20:00'
-  ];
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
 
   // Hafta günleri
   const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -54,6 +47,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
 
   useEffect(() => {
     setTotalSessions(sessions.length);
+    setTimeSlots(TimeSlotManager.getTimeSlotStrings());
   }, [sessions, setTotalSessions]);
 
   // Etüt atama

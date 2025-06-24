@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, Users, GraduationCap, FileSpreadsheet, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,8 @@ import { TeacherScheduleView } from '@/components/TeacherScheduleView';
 import { toast } from '@/hooks/use-toast';
 import { LocalStorageManager } from '@/utils/localStorage';
 import { Teacher, Student, Session } from '@/utils/sessionValidation';
+import { TimeSlotManagement } from '@/components/TimeSlotManagement';
+import { DataManager } from '@/components/DataManager';
 
 const Index = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -136,7 +137,7 @@ const Index = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="teacher-schedule" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:grid-cols-7">
             <TabsTrigger value="teacher-schedule" className="flex items-center space-x-2">
               <Calendar className="h-4 w-4" />
               <span>Öğretmen Programı</span>
@@ -156,6 +157,14 @@ const Index = () => {
             <TabsTrigger value="reports" className="flex items-center space-x-2">
               <FileSpreadsheet className="h-4 w-4" />
               <span>Raporlar</span>
+            </TabsTrigger>
+            <TabsTrigger value="time-slots" className="flex items-center space-x-2">
+              <Clock className="h-4 w-4" />
+              <span>Saat Dilimleri</span>
+            </TabsTrigger>
+            <TabsTrigger value="data" className="flex items-center space-x-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>Veri Yönetimi</span>
             </TabsTrigger>
           </TabsList>
 
@@ -207,6 +216,14 @@ const Index = () => {
               students={students}
               sessions={sessions}
             />
+          </TabsContent>
+
+          <TabsContent value="time-slots">
+            <TimeSlotManagement />
+          </TabsContent>
+
+          <TabsContent value="data">
+            <DataManager />
           </TabsContent>
         </Tabs>
       </main>

@@ -1,10 +1,12 @@
 
 import { Session, Teacher, Student } from './sessionValidation';
+import { TimeSlot } from './timeSlotManager';
 
 const STORAGE_KEYS = {
   SESSIONS: 'etut_sessions',
   TEACHERS: 'etut_teachers', 
-  STUDENTS: 'etut_students'
+  STUDENTS: 'etut_students',
+  TIME_SLOTS: 'etut_time_slots'
 };
 
 export class LocalStorageManager {
@@ -55,5 +57,12 @@ export class LocalStorageManager {
     this.saveSessions(sessions);
     this.saveTeachers(teachers);
     this.saveStudents(students);
+  }
+
+  // Clear all data
+  static clearAll(): void {
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
   }
 }

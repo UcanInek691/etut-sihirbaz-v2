@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { Calendar, Clock, Users, CheckCircle, X, Trash2, User, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from '@/hooks/use-toast';
 import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student, isTeacherAvailableOnDay } from '@/utils/sessionValidation';
 import { LocalStorageManager } from '@/utils/localStorage';
+import { TimeSlotManager } from '@/utils/timeSlotManager';
 
 interface TeacherScheduleViewProps {
   selectedDate: Date;
@@ -36,15 +37,12 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
   const [selectedDate_, setSelectedDate_] = useState<Date>(new Date());
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
 
-  // Güncellenmiş zaman slotları (09:30-20:00)
-  const timeSlots = [
-    '09:30-10:10', '10:20-11:00', '11:10-11:50', 
-    '12:00-12:40', '12:50-13:30', '13:40-14:20', 
-    '14:30-15:10', '15:20-16:00', '16:10-16:50', 
-    '17:00-17:40', '17:50-18:30', '18:40-19:20', 
-    '19:30-20:00'
-  ];
+  // Güncellenmiş zaman slotları (dinamik)
+  useEffect(() => {
+    setTimeSlots(TimeSlotManager.getTimeSlotStrings());
+  }, []);
 
   const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
