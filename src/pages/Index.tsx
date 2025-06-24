@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Calendar, Users, GraduationCap, FileSpreadsheet, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +27,6 @@ const Index = () => {
   useEffect(() => {
     console.log('🔄 Veriler yükleniyor...');
     
-    // Yerel depolamadan veri yükle
     const savedTeachers = LocalStorageManager.loadTeachers();
     const savedStudents = LocalStorageManager.loadStudents();
     const savedSessions = LocalStorageManager.loadSessions();
@@ -35,7 +35,7 @@ const Index = () => {
       setTeachers(savedTeachers);
       console.log(`✅ ${savedTeachers.length} öğretmen yüklendi`);
     } else {
-      // İlk kurulum için örnek veriler
+      // Güncellenmiş örnek veriler - yeni dersler dahil
       const sampleTeachers: Teacher[] = [
         { 
           id: '1', 
@@ -57,6 +57,39 @@ const Index = () => {
           availableHours: {
             'Pazartesi': ['12:00-12:40', '15:20-16:00'],
             'Perşembe': ['10:20-11:00', '16:10-16:50']
+          }, 
+          totalSessions: 0 
+        },
+        { 
+          id: '3', 
+          name: 'Mehmet Öğretmen', 
+          subject: 'Geometri', 
+          email: 'mehmet@okul.com', 
+          availableHours: {
+            'Salı': ['09:30-10:10', '12:50-13:30'],
+            'Cuma': ['11:10-11:50', '14:30-15:10']
+          }, 
+          totalSessions: 0 
+        },
+        { 
+          id: '4', 
+          name: 'Zeynep Öğretmen', 
+          subject: 'Fen Bilgisi', 
+          email: 'zeynep@okul.com', 
+          availableHours: {
+            'Çarşamba': ['10:20-11:00', '15:20-16:00'],
+            'Cumartesi': ['09:30-10:10', '11:10-11:50']
+          }, 
+          totalSessions: 0 
+        },
+        { 
+          id: '5', 
+          name: 'Emre Öğretmen', 
+          subject: 'Sosyal Bilgiler', 
+          email: 'emre@okul.com', 
+          availableHours: {
+            'Perşembe': ['12:00-12:40', '17:00-17:40'],
+            'Pazar': ['13:40-14:20', '16:10-16:50']
           }, 
           totalSessions: 0 
         }

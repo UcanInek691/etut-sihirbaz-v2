@@ -56,6 +56,9 @@ export class TimeSlotManager {
     };
     timeSlots.push(newSlot);
     this.saveTimeSlots(timeSlots);
+    
+    // Yeni saat dilimini öğretmenlerin müsaitlik saatlerine ekle
+    this.addTimeSlotToTeachers(`${startTime}-${endTime}`);
   }
 
   static updateTimeSlot(id: string, updates: Partial<TimeSlot>): void {
@@ -70,5 +73,24 @@ export class TimeSlotManager {
   static deleteTimeSlot(id: string): void {
     const timeSlots = this.getTimeSlots().filter(slot => slot.id !== id);
     this.saveTimeSlots(timeSlots);
+  }
+
+  // Yeni saat dilimini öğretmenlerin müsaitlik listesine ekle
+  static addTimeSlotToTeachers(timeSlotString: string): void {
+    const teachers = JSON.parse(localStorage.getItem('etut_teachers') || '[]');
+    const updatedTeachers = teachers.map((teacher: any) => ({
+      ...teacher,
+      availableHours: {
+        ...teacher.availableHours,
+        'Pazartesi': [...(teacher.availableHours?.Pazartesi || [])],
+        'Salı': [...(teacher.availableHours?.Salı || [])],
+        'Çarşamba': [...(teacher.availableHours?.Çarşamba || [])],
+        'Perşembe': [...(teacher.availableHours?.Perşembe || [])],
+        'Cuma': [...(teacher.availableHours?.Cuma || [])],
+        'Cumartesi': [...(teacher.availableHours?.Cumartesi || [])],
+        'Pazar': [...(teacher.availableHours?.Pazar || [])]
+      }
+    }));
+    localStorage.setItem('etut_teachers', JSON.stringify(updatedTeachers));
   }
 }

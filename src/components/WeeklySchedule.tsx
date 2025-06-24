@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
-import { Calendar, Clock, Users, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import { Calendar, Clock, Users, AlertTriangle, CheckCircle, X, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student } from '@/utils/sessionValidation';
 import { LocalStorageManager } from '@/utils/localStorage';
@@ -38,6 +39,9 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   const [selectedTeacher, setSelectedTeacher] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<string>('');
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [sessionNotes, setSessionNotes] = useState<string>('');
+  const [editingSessionId, setEditingSessionId] = useState<string>('');
+  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
 
   // Hafta günleri
   const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -50,7 +54,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     setTimeSlots(TimeSlotManager.getTimeSlotStrings());
   }, [sessions, setTotalSessions]);
 
-  // Etüt atama
+  // Etüt atama - not desteği ile
   const handleAssignSession = async () => {
     if (!selectedTeacher || !selectedStudent || !selectedTimeSlot) {
       toast({
@@ -64,7 +68,6 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     const teacher = teachers.find(t => t.id === selectedTeacher);
     if (!teacher) return;
 
-    // KRITIK: Haftalık ders limiti ve diğer validasyonlar
     const validation = validateSessionAssignment(
       selectedTeacher,
       selectedStudent,
@@ -85,7 +88,6 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       return;
     }
 
-    // Yeni session oluştur
     const newSession: Session = {
       id: Date.now().toString(),
       teacherId: selectedTeacher,
@@ -95,13 +97,12 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       subject: teacher.subject,
       weekYear: getWeekYear(selectedDate_),
       status: 'scheduled',
-      createdAt: new Date()
+      createdAt: new Date(),
+      notes: sessionNotes || ''
     };
 
     const updatedSessions = [...sessions, newSession];
     setSessions(updatedSessions);
-
-    // OTOMATIK KAYDETME
     LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
@@ -110,11 +111,43 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       variant: "default"
     });
 
-    // Dialog'u kapat ve seçimleri temizle
     setIsAssignDialogOpen(false);
     setSelectedTeacher('');
     setSelectedStudent('');
     setSelectedTimeSlot('');
+    setSessionNotes('');
+  };
+
+  // Not düzenleme
+  const handleNotesEdit = (sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      setEditingSessionId(sessionId);
+      setSessionNotes(session.notes || '');
+      setIsNotesDialogOpen(true);
+    }
+  };
+
+  const saveNotes = () => {
+    const updatedSessions = sessions.map(session => {
+      if (session.id === editingSessionId) {
+        return { ...session, notes: sessionNotes };
+      }
+      return session;
+    });
+
+    setSessions(updatedSessions);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
+
+    toast({
+      title: "Not Kaydedildi",
+      description: "Etüt notu başarıyla güncellendi.",
+      variant: "default"
+    });
+
+    setIsNotesDialogOpen(false);
+    setEditingSessionId('');
+    setSessionNotes('');
   };
 
   // Öğrenci gelmedi işaretleme - BU KISIM DÜZELTİLDİ
@@ -194,7 +227,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     );
   };
 
-  // Session kartları render et (birden fazla session olabilir)
+  // Session kartları render et - not düzenleme butonu ile
   const renderSessionCards = (slotSessions: Session[], day: number, timeSlot: string) => {
     if (slotSessions.length === 0) {
       return (
@@ -229,53 +262,72 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
                 <div className="text-xs font-medium truncate">{teacher?.name}</div>
                 <div className="text-xs truncate">{student?.name}</div>
                 <div className="text-xs text-gray-600 truncate">{session.subject}</div>
-                
-                {session.status === 'scheduled' && (
-                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-5 w-5 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteSession(session.id);
-                      }}
-                      title="Etütü Sil"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-5 w-5 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        markStudentAbsent(session.id);
-                      }}
-                      title="Etüte Gelmedi"
-                    >
-                      <AlertTriangle className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-5 w-5 p-0 bg-green-600 hover:bg-green-700"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        markSessionCompleted(session.id);
-                      }}
-                      title="Etüt Tamamlandı"
-                    >
-                      <CheckCircle className="h-3 w-3" />
-                    </Button>
+                {session.notes && (
+                  <div className="text-xs text-gray-500 truncate mt-1" title={session.notes}>
+                    📝 {session.notes}
                   </div>
                 )}
+                
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-5 w-5 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNotesEdit(session.id);
+                    }}
+                    title="Not Ekle/Düzenle"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  
+                  {session.status === 'scheduled' && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-5 w-5 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSession(session.id);
+                        }}
+                        title="Etütü Sil"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-5 w-5 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markStudentAbsent(session.id);
+                        }}
+                        title="Etüte Gelmedi"
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-5 w-5 p-0 bg-green-600 hover:bg-green-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markSessionCompleted(session.id);
+                        }}
+                        title="Etüt Tamamlandı"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
         })}
         
-        {/* Yeni etüt ekleme butonu */}
         <div 
           className="h-8 border border-dashed border-gray-300 rounded flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
           onClick={() => {
@@ -376,7 +428,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
         </CardContent>
       </Card>
 
-      {/* Etüt Atama Dialog */}
+      {/* Etüt Atama Dialog - not ekleme ile */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -422,6 +474,16 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
               </Select>
             </div>
 
+            <div>
+              <label className="text-sm font-medium">Not (İsteğe Bağlı)</label>
+              <Textarea
+                value={sessionNotes}
+                onChange={(e) => setSessionNotes(e.target.value)}
+                placeholder="Bu etütle ilgili bir not ekleyebilirsiniz..."
+                rows={3}
+              />
+            </div>
+
             {selectedTeacher && selectedStudent && (
               <div className="p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center space-x-2 text-blue-800">
@@ -441,6 +503,35 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
               </Button>
               <Button onClick={handleAssignSession}>
                 Etüt Planla
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Not Düzenleme Dialog */}
+      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Etüt Notu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Not</label>
+              <Textarea
+                value={sessionNotes}
+                onChange={(e) => setSessionNotes(e.target.value)}
+                placeholder="Bu etütle ilgili notunuzu yazın..."
+                rows={4}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsNotesDialogOpen(false)}>
+                İptal
+              </Button>
+              <Button onClick={saveNotes}>
+                Kaydet
               </Button>
             </div>
           </div>

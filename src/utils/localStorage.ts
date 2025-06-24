@@ -1,4 +1,3 @@
-
 import { Session, Teacher, Student } from './sessionValidation';
 import { TimeSlot } from './timeSlotManager';
 
@@ -10,7 +9,7 @@ const STORAGE_KEYS = {
 };
 
 export class LocalStorageManager {
-  // Sessions
+  // Sessions - güncellenmiş notes desteği ile
   static saveSessions(sessions: Session[]): void {
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
   }
@@ -22,7 +21,8 @@ export class LocalStorageManager {
     return JSON.parse(data).map((session: any) => ({
       ...session,
       date: new Date(session.date),
-      createdAt: new Date(session.createdAt)
+      createdAt: new Date(session.createdAt),
+      notes: session.notes || '' // Not alanını da yükle
     }));
   }
 

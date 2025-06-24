@@ -11,6 +11,7 @@ export interface Session {
   weekYear: string;
   status: 'scheduled' | 'completed' | 'absent';
   createdAt: Date;
+  notes?: string; // Yeni not alanı
 }
 
 export interface Student {

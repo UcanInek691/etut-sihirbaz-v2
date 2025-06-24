@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
-import { Calendar, Clock, Users, CheckCircle, X, Trash2, User, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, Users, CheckCircle, X, Trash2, User, AlertTriangle, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student, isTeacherAvailableOnDay } from '@/utils/sessionValidation';
 import { LocalStorageManager } from '@/utils/localStorage';
@@ -38,6 +39,9 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string>('');
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [sessionNotes, setSessionNotes] = useState<string>('');
+  const [editingSessionId, setEditingSessionId] = useState<string>('');
+  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
 
   // Güncellenmiş zaman slotları (dinamik)
   useEffect(() => {
@@ -66,7 +70,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
     });
   };
 
-  // Etüt atama
+  // Etüt atama - not desteği ile
   const handleAssignSession = async () => {
     if (!selectedTeacherId || !selectedStudent || !selectedTimeSlot) {
       toast({
@@ -109,7 +113,8 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
       subject: teacher.subject,
       weekYear: getWeekYear(selectedDate_),
       status: 'scheduled',
-      createdAt: new Date()
+      createdAt: new Date(),
+      notes: sessionNotes || ''
     };
 
     const updatedSessions = [...sessions, newSession];
@@ -125,6 +130,39 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
     setIsAssignDialogOpen(false);
     setSelectedStudent('');
     setSelectedTimeSlot('');
+    setSessionNotes('');
+  };
+
+  // Not düzenleme
+  const handleNotesEdit = (sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      setEditingSessionId(sessionId);
+      setSessionNotes(session.notes || '');
+      setIsNotesDialogOpen(true);
+    }
+  };
+
+  const saveNotes = () => {
+    const updatedSessions = sessions.map(session => {
+      if (session.id === editingSessionId) {
+        return { ...session, notes: sessionNotes };
+      }
+      return session;
+    });
+
+    setSessions(updatedSessions);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
+
+    toast({
+      title: "Not Kaydedildi",
+      description: "Etüt notu başarıyla güncellendi.",
+      variant: "default"
+    });
+
+    setIsNotesDialogOpen(false);
+    setEditingSessionId('');
+    setSessionNotes('');
   };
 
   // Etüt durumu değiştirme
@@ -243,47 +281,67 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
                 <div className="text-sm font-medium truncate">{student?.name}</div>
                 <div className="text-xs text-gray-600 truncate">{student?.class}</div>
                 <div className="text-xs text-gray-600 truncate">{session.subject}</div>
-                
-                {session.status === 'scheduled' && (
-                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-5 w-5 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteSession(session.id);
-                      }}
-                      title="Etütü Sil"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-5 w-5 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        markStudentAbsent(session.id);
-                      }}
-                      title="Etüte Gelmedi"
-                    >
-                      <AlertTriangle className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-5 w-5 p-0 bg-green-600 hover:bg-green-700"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        markSessionCompleted(session.id);
-                      }}
-                      title="Etüt Tamamlandı"
-                    >
-                      <CheckCircle className="h-3 w-3" />
-                    </Button>
+                {session.notes && (
+                  <div className="text-xs text-gray-500 truncate mt-1" title={session.notes}>
+                    📝 {session.notes}
                   </div>
                 )}
+                
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-5 w-5 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNotesEdit(session.id);
+                    }}
+                    title="Not Ekle/Düzenle"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  
+                  {session.status === 'scheduled' && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-5 w-5 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSession(session.id);
+                        }}
+                        title="Etütü Sil"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-5 w-5 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markStudentAbsent(session.id);
+                        }}
+                        title="Etüte Gelmedi"
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-5 w-5 p-0 bg-green-600 hover:bg-green-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markSessionCompleted(session.id);
+                        }}
+                        title="Etüt Tamamlandı"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
@@ -381,7 +439,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
         </Card>
       )}
 
-      {/* Etüt Atama Dialog */}
+      {/* Etüt Atama Dialog - not ekleme ile */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -411,12 +469,51 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
               </Select>
             </div>
 
+            <div>
+              <label className="text-sm font-medium">Not (İsteğe Bağlı)</label>
+              <Textarea
+                value={sessionNotes}
+                onChange={(e) => setSessionNotes(e.target.value)}
+                placeholder="Bu etütle ilgili bir not ekleyebilirsiniz..."
+                rows={3}
+              />
+            </div>
+
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
                 İptal
               </Button>
               <Button onClick={handleAssignSession}>
                 Etüt Planla
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Not Düzenleme Dialog */}
+      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Etüt Notu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Not</label>
+              <Textarea
+                value={sessionNotes}
+                onChange={(e) => setSessionNotes(e.target.value)}
+                placeholder="Bu etütle ilgili notunuzu yazın..."
+                rows={4}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsNotesDialogOpen(false)}>
+                İptal
+              </Button>
+              <Button onClick={saveNotes}>
+                Kaydet
               </Button>
             </div>
           </div>
