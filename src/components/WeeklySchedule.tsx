@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { Calendar, Clock, Users, AlertTriangle, CheckCircle, X } from 'lucide-react';
@@ -8,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { validateSessionAssignment, getWeekYear, isStudentBanned, Session, Teacher, Student } from '@/utils/sessionValidation';
-import { excelManager } from '@/utils/excelManager';
+import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student } from '@/utils/sessionValidation';
+import { LocalStorageManager } from '@/utils/localStorage';
 
 interface WeeklyScheduleProps {
   selectedDate: Date;
@@ -19,6 +18,7 @@ interface WeeklyScheduleProps {
   sessions: Session[];
   setSessions: (sessions: Session[]) => void;
   setTotalSessions: (count: number) => void;
+  setStudents: (students: Student[]) => void;
 }
 
 export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
@@ -28,7 +28,8 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   students,
   sessions,
   setSessions,
-  setTotalSessions
+  setTotalSessions,
+  setStudents
 }) => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [selectedDate_, setSelectedDate_] = useState<Date>(new Date());
@@ -36,12 +37,13 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
   const [selectedTeacher, setSelectedTeacher] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<string>('');
 
-  // Zaman slotları (08:00-21:00, 40dk + 10dk ara)
+  // Zaman slotları (09:30-20:00, 40dk + 10dk ara)
   const timeSlots = [
-    '08:00-08:40', '08:50-09:30', '09:40-10:20', '10:30-11:10',
-    '11:20-12:00', '12:10-12:50', '13:00-13:40', '13:50-14:30',
-    '14:40-15:20', '15:30-16:10', '16:20-17:00', '17:10-17:50',
-    '18:00-18:40', '18:50-19:30', '19:40-20:20', '20:30-21:10'
+    '09:30-10:10', '10:20-11:00', '11:10-11:50', 
+    '12:00-12:40', '12:50-13:30', '13:40-14:20', 
+    '14:30-15:10', '15:20-16:00', '16:10-16:50', 
+    '17:00-17:40', '17:50-18:30', '18:40-19:20', 
+    '19:30-20:00'
   ];
 
   // Hafta günleri
@@ -105,8 +107,8 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     const updatedSessions = [...sessions, newSession];
     setSessions(updatedSessions);
 
-    // OTOMATIK EXCEL KAYDETME
-    excelManager.autoSaveAllExcelFiles(updatedSessions, teachers, students);
+    // OTOMATIK KAYDETME
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
       title: "Etüt Planlandı",
@@ -121,12 +123,15 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     setSelectedTimeSlot('');
   };
 
-  // Öğrenci gelmedi işaretleme
+  // Öğrenci gelmedi işaretleme - BU KISIM DÜZELTİLDİ
   const markStudentAbsent = (sessionId: string) => {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
 
     const student = students.find(s => s.id === session.studentId);
+    if (!student) return;
+
+    // 1. Session'ı absent olarak işaretle
     const updatedSessions = sessions.map(s => {
       if (s.id === sessionId) {
         return { ...s, status: 'absent' as const };
@@ -134,14 +139,22 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       return s;
     });
 
-    setSessions(updatedSessions);
+    // 2. Öğrenciyi ban'le
+    const bannedStudent = banStudentFromAllSubjects(student);
+    const updatedStudents = students.map(s => 
+      s.id === student.id ? bannedStudent : s
+    );
 
-    // OTOMATIK EXCEL KAYDETME
-    excelManager.autoSaveAllExcelFiles(updatedSessions, teachers, students);
+    // 3. State'leri güncelle
+    setSessions(updatedSessions);
+    setStudents(updatedStudents);
+
+    // 4. OTOMATIK KAYDETME
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, updatedStudents);
 
     toast({
       title: "Devamsızlık İşaretlendi",
-      description: `${student?.name} 2 hafta yasaklandı.`,
+      description: `${student.name} 2 hafta TÜM DERSLERDEN yasaklandı!`,
       variant: "destructive"
     });
   };
@@ -156,12 +169,25 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     });
 
     setSessions(updatedSessions);
-    excelManager.autoSaveAllExcelFiles(updatedSessions, teachers, students);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
       title: "Etüt Tamamlandı",
       description: "Etüt başarıyla tamamlandı olarak işaretlendi.",
       variant: "default"
+    });
+  };
+
+  // Etüt silme
+  const deleteSession = (sessionId: string) => {
+    const updatedSessions = sessions.filter(s => s.id !== sessionId);
+    setSessions(updatedSessions);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
+
+    toast({
+      title: "Etüt Silindi",
+      description: "Etüt başarıyla silindi.",
+      variant: "destructive"
     });
   };
 
@@ -218,11 +244,23 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
                       className="h-5 w-5 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
+                        deleteSession(session.id);
+                      }}
+                      title="Etütü Sil"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-5 w-5 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         markStudentAbsent(session.id);
                       }}
                       title="Etüte Gelmedi"
                     >
-                      <X className="h-3 w-3" />
+                      <AlertTriangle className="h-3 w-3" />
                     </Button>
                     <Button
                       size="sm"

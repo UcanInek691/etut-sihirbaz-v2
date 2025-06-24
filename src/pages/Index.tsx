@@ -42,9 +42,9 @@ const Index = () => {
           subject: 'Matematik', 
           email: 'ahmet@okul.com', 
           availableHours: {
-            'Pazartesi': ['08:00-08:40', '09:40-10:20'],
-            'Salı': ['10:30-11:10', '14:40-15:20'],
-            'Çarşamba': ['08:00-08:40', '13:00-13:40']
+            'Pazartesi': ['09:30-10:10', '11:10-11:50'],
+            'Salı': ['10:20-11:00', '14:30-15:10'],
+            'Çarşamba': ['09:30-10:10', '13:40-14:20']
           }, 
           totalSessions: 0 
         },
@@ -54,8 +54,8 @@ const Index = () => {
           subject: 'Fizik', 
           email: 'ayse@okul.com', 
           availableHours: {
-            'Pazartesi': ['11:20-12:00', '15:30-16:10'],
-            'Perşembe': ['08:50-09:30', '16:20-17:00']
+            'Pazartesi': ['12:00-12:40', '15:20-16:00'],
+            'Perşembe': ['10:20-11:00', '16:10-16:50']
           }, 
           totalSessions: 0 
         }
@@ -169,6 +169,7 @@ const Index = () => {
               setSessions={updateSessions}
               selectedTeacherId={selectedTeacherId}
               setSelectedTeacherId={setSelectedTeacherId}
+              setStudents={updateStudents}
             />
           </TabsContent>
 
@@ -181,6 +182,7 @@ const Index = () => {
               sessions={sessions}
               setSessions={updateSessions}
               setTotalSessions={setTotalSessions}
+              setStudents={updateStudents}
             />
           </TabsContent>
 

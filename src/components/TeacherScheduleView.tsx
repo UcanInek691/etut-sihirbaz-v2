@@ -1,13 +1,13 @@
-
 import React, { useState } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
-import { Calendar, Clock, Users, CheckCircle, X, Trash2, User } from 'lucide-react';
+import { Calendar, Clock, Users, CheckCircle, X, Trash2, User, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { validateSessionAssignment, getWeekYear, isStudentBanned, Session, Teacher, Student, isTeacherAvailableOnDay } from '@/utils/sessionValidation';
+import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student, isTeacherAvailableOnDay } from '@/utils/sessionValidation';
+import { LocalStorageManager } from '@/utils/localStorage';
 
 interface TeacherScheduleViewProps {
   selectedDate: Date;
@@ -18,6 +18,7 @@ interface TeacherScheduleViewProps {
   setSessions: (sessions: Session[]) => void;
   selectedTeacherId: string;
   setSelectedTeacherId: (id: string) => void;
+  setStudents: (students: Student[]) => void;
 }
 
 export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
@@ -28,18 +29,21 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
   sessions,
   setSessions,
   selectedTeacherId,
-  setSelectedTeacherId
+  setSelectedTeacherId,
+  setStudents
 }) => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [selectedDate_, setSelectedDate_] = useState<Date>(new Date());
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string>('');
 
+  // Güncellenmiş zaman slotları (09:30-20:00)
   const timeSlots = [
-    '08:00-08:40', '08:50-09:30', '09:40-10:20', '10:30-11:10',
-    '11:20-12:00', '12:10-12:50', '13:00-13:40', '13:50-14:30',
-    '14:40-15:20', '15:30-16:10', '16:20-17:00', '17:10-17:50',
-    '18:00-18:40', '18:50-19:30', '19:40-20:20', '20:30-21:10'
+    '09:30-10:10', '10:20-11:00', '11:10-11:50', 
+    '12:00-12:40', '12:50-13:30', '13:40-14:20', 
+    '14:30-15:10', '15:20-16:00', '16:10-16:50', 
+    '17:00-17:40', '17:50-18:30', '18:40-19:20', 
+    '19:30-20:00'
   ];
 
   const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -55,6 +59,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
     const student = students.find(s => s.id === session.studentId);
     const updatedSessions = sessions.filter(s => s.id !== sessionId);
     setSessions(updatedSessions);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
       title: "Etüt Silindi",
@@ -111,6 +116,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
 
     const updatedSessions = [...sessions, newSession];
     setSessions(updatedSessions);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
       title: "Etüt Planlandı",
@@ -132,6 +138,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
       return session;
     });
     setSessions(updatedSessions);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
       title: "Etüt Tamamlandı",
@@ -140,21 +147,38 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
     });
   };
 
+  // Öğrenci gelmedi işaretleme - DÜZELTİLDİ
   const markStudentAbsent = (sessionId: string) => {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
 
+    const student = students.find(s => s.id === session.studentId);
+    if (!student) return;
+
+    // 1. Session'ı absent olarak işaretle
     const updatedSessions = sessions.map(s => {
       if (s.id === sessionId) {
         return { ...s, status: 'absent' as const };
       }
       return s;
     });
+
+    // 2. Öğrenciyi ban'le
+    const bannedStudent = banStudentFromAllSubjects(student);
+    const updatedStudents = students.map(s => 
+      s.id === student.id ? bannedStudent : s
+    );
+
+    // 3. State'leri güncelle
     setSessions(updatedSessions);
+    setStudents(updatedStudents);
+
+    // 4. OTOMATIK KAYDETME
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, updatedStudents);
 
     toast({
       title: "Devamsızlık İşaretlendi",
-      description: "Öğrenci 2 hafta tüm derslerden yasaklandı.",
+      description: `${student.name} 2 hafta TÜM DERSLERDEN yasaklandı!`,
       variant: "destructive"
     });
   };
@@ -246,7 +270,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
                       }}
                       title="Etüte Gelmedi"
                     >
-                      <X className="h-3 w-3" />
+                      <AlertTriangle className="h-3 w-3" />
                     </Button>
                     <Button
                       size="sm"
