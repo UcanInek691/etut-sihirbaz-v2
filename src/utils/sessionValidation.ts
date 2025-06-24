@@ -28,13 +28,12 @@ export interface Teacher {
   name: string;
   subject: string;
   email: string;
-  availableHours: string[];
+  availableHours: { [key: string]: string[] }; // Günlere göre müsait saatler
   totalSessions: number;
 }
 
 /**
  * KRITIK FONKSIYON: Haftalık ders limiti kontrolü
- * Bir öğrenci aynı dersten haftada sadece 1 etüt alabilir
  */
 export const validateWeeklySubjectLimit = (
   studentId: string,
@@ -43,10 +42,8 @@ export const validateWeeklySubjectLimit = (
   existingSessions: Session[],
   studentName: string
 ): { valid: boolean; message?: string } => {
-  // ISO hafta formatı oluştur (YYYY-WW)
   const weekYear = getWeekYear(targetDate);
   
-  // Bu hafta bu öğrencinin bu dersten etütü var mı kontrol et
   const existingSessionInWeek = existingSessions.find(session => 
     session.studentId === studentId && 
     session.subject === subject && 
@@ -63,12 +60,9 @@ export const validateWeeklySubjectLimit = (
   return { valid: true };
 };
 
-/**
- * ISO hafta formatı oluşturur (YYYY-WW)
- */
 export const getWeekYear = (date: Date): string => {
   const year = date.getFullYear();
-  const start = startOfWeek(date, { weekStartsOn: 1 }); // Pazartesi başlangıç
+  const start = startOfWeek(date, { weekStartsOn: 1 });
   const onejan = new Date(year, 0, 1);
   const weekNumber = Math.ceil((((start.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
   
@@ -76,7 +70,7 @@ export const getWeekYear = (date: Date): string => {
 };
 
 /**
- * Öğrenci yasaklı mı kontrol et
+ * GÜNCELLENDİ: Öğrenci yasaklı mı kontrol et
  */
 export const isStudentBanned = (student: Student): boolean => {
   if (!student.isBanned || !student.banEndDate) return false;
@@ -84,16 +78,36 @@ export const isStudentBanned = (student: Student): boolean => {
 };
 
 /**
- * Öğretmen müsait mi kontrol et
- * GÜNCELLENDİ: Aynı saatte sadece aynı öğretmen çakışması kontrol edilir
+ * Öğrenci ban işlemi (2 hafta TÜM DERSLERDEN)
  */
+export const banStudentFromAllSubjects = (student: Student): Student => {
+  const banEndDate = new Date();
+  banEndDate.setDate(banEndDate.getDate() + 14); // 2 hafta
+  
+  return {
+    ...student,
+    isBanned: true,
+    banEndDate
+  };
+};
+
+/**
+ * Manuel ban kaldırma
+ */
+export const removeBan = (student: Student): Student => {
+  return {
+    ...student,
+    isBanned: false,
+    banEndDate: null
+  };
+};
+
 export const isTeacherAvailable = (
   teacherId: string,
   timeSlot: string,
   date: Date,
   existingSessions: Session[]
 ): boolean => {
-  // Aynı zaman diliminde AYNI öğretmenin başka etütü var mı?
   const conflictingSession = existingSessions.find(session =>
     session.teacherId === teacherId &&
     session.timeSlot === timeSlot &&
@@ -103,16 +117,12 @@ export const isTeacherAvailable = (
   return !conflictingSession;
 };
 
-/**
- * Öğrenci aynı saatte başka etütte mi kontrol et
- */
 export const isStudentAvailable = (
   studentId: string,
   timeSlot: string,
   date: Date,
   existingSessions: Session[]
 ): boolean => {
-  // Aynı zaman diliminde bu öğrencinin başka etütü var mı?
   const conflictingSession = existingSessions.find(session =>
     session.studentId === studentId &&
     session.timeSlot === timeSlot &&
@@ -123,21 +133,17 @@ export const isStudentAvailable = (
 };
 
 /**
- * Zaman slotu dolu mu kontrol et - KALDIRILDI
- * Artık sınırsız öğretmen aynı saatte ders verebilir
+ * Öğretmenin belirli gün için müsait olup olmadığını kontrol et
  */
-export const isTimeSlotFull = (
-  timeSlot: string,
-  date: Date,
-  existingSessions: Session[],
-  maxStudentsPerSlot: number = 999 // Pratik olarak sınırsız
+export const isTeacherAvailableOnDay = (
+  teacher: Teacher,
+  dayName: string,
+  timeSlot: string
 ): boolean => {
-  return false; // Artık hiçbir zaman dolu olmayacak
+  const daySchedule = teacher.availableHours[dayName];
+  return daySchedule ? daySchedule.includes(timeSlot) : false;
 };
 
-/**
- * Kapsamlı etüt validasyonu
- */
 export const validateSessionAssignment = (
   teacherId: string,
   studentId: string,
@@ -155,21 +161,32 @@ export const validateSessionAssignment = (
     return { valid: false, message: "Öğretmen veya öğrenci bulunamadı!" };
   }
   
-  // 1. Öğrenci yasaklı mı?
+  // 1. Öğrenci yasaklı mı? (TÜM DERSLERDEN)
   if (isStudentBanned(student)) {
     return { 
       valid: false, 
-      message: `❌ ${student.name} yasaklı! Yasak bitiş tarihi: ${student.banEndDate?.toLocaleDateString('tr-TR')}` 
+      message: `❌ ${student.name} TÜM DERSLERDEN yasaklı! Yasak bitiş tarihi: ${student.banEndDate?.toLocaleDateString('tr-TR')}` 
     };
   }
   
-  // 2. KRITIK: Haftalık ders limiti kontrolü
+  // 2. Haftalık ders limiti kontrolü
   const weeklyLimitCheck = validateWeeklySubjectLimit(studentId, subject, date, existingSessions, student.name);
   if (!weeklyLimitCheck.valid) {
     return weeklyLimitCheck;
   }
   
-  // 3. Öğretmen müsait mi?
+  // 3. Öğretmen o gün müsait mi?
+  const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  const dayName = dayNames[date.getDay()];
+  
+  if (!isTeacherAvailableOnDay(teacher, dayName, timeSlot)) {
+    return { 
+      valid: false, 
+      message: `❌ ${teacher.name} ${dayName} günü ${timeSlot} saatinde müsait değil!` 
+    };
+  }
+  
+  // 4. Öğretmen çakışması
   if (!isTeacherAvailable(teacherId, timeSlot, date, existingSessions)) {
     return { 
       valid: false, 
@@ -177,7 +194,7 @@ export const validateSessionAssignment = (
     };
   }
   
-  // 4. Öğrenci müsait mi?
+  // 5. Öğrenci çakışması
   if (!isStudentAvailable(studentId, timeSlot, date, existingSessions)) {
     return { 
       valid: false, 
@@ -186,18 +203,4 @@ export const validateSessionAssignment = (
   }
   
   return { valid: true };
-};
-
-/**
- * Öğrenci ban işlemi (2 hafta)
- */
-export const banStudent = (student: Student): Student => {
-  const banEndDate = new Date();
-  banEndDate.setDate(banEndDate.getDate() + 14); // 2 hafta
-  
-  return {
-    ...student,
-    isBanned: true,
-    banEndDate
-  };
 };

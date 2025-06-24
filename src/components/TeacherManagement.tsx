@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Mail, Clock, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Mail, Clock, Users, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { Teacher } from '@/utils/sessionValidation';
 
@@ -26,7 +27,7 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
     name: '',
     subject: '',
     email: '',
-    availableHours: [] as string[]
+    availableHours: {} as { [key: string]: string[] }
   });
 
   const subjects = [
@@ -37,15 +38,18 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
   const timeSlots = [
     '08:00-08:40', '08:50-09:30', '09:40-10:20', '10:30-11:10',
     '11:20-12:00', '12:10-12:50', '13:00-13:40', '13:50-14:30',
-    '14:40-15:20', '15:30-16:10', '16:20-17:00', '17:10-17:50'
+    '14:40-15:20', '15:30-16:10', '16:20-17:00', '17:10-17:50',
+    '18:00-18:40', '18:50-19:30', '19:40-20:20', '20:30-21:10'
   ];
+
+  const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
   const resetForm = () => {
     setFormData({
       name: '',
       subject: '',
       email: '',
-      availableHours: []
+      availableHours: {}
     });
     setEditingTeacher(null);
   };
@@ -61,7 +65,6 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
     }
 
     if (editingTeacher) {
-      // Güncelleme
       const updatedTeachers = teachers.map(teacher =>
         teacher.id === editingTeacher.id
           ? { ...teacher, ...formData }
@@ -73,7 +76,6 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
         description: `${formData.name} bilgileri güncellendi.`
       });
     } else {
-      // Yeni ekleme
       const newTeacher: Teacher = {
         id: Date.now().toString(),
         name: formData.name,
@@ -116,13 +118,25 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
     }
   };
 
-  const toggleAvailableHour = (timeSlot: string) => {
-    setFormData(prev => ({
-      ...prev,
-      availableHours: prev.availableHours.includes(timeSlot)
-        ? prev.availableHours.filter(slot => slot !== timeSlot)
-        : [...prev.availableHours, timeSlot]
-    }));
+  const toggleDayTimeSlot = (day: string, timeSlot: string) => {
+    setFormData(prev => {
+      const daySchedule = prev.availableHours[day] || [];
+      const isSelected = daySchedule.includes(timeSlot);
+      
+      return {
+        ...prev,
+        availableHours: {
+          ...prev.availableHours,
+          [day]: isSelected 
+            ? daySchedule.filter(slot => slot !== timeSlot)
+            : [...daySchedule, timeSlot]
+        }
+      };
+    });
+  };
+
+  const getTotalAvailableHours = (teacher: Teacher): number => {
+    return Object.values(teacher.availableHours).reduce((total, dayHours) => total + dayHours.length, 0);
   };
 
   return (
@@ -142,13 +156,13 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
                   <span>Yeni Öğretmen</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingTeacher ? 'Öğretmen Düzenle' : 'Yeni Öğretmen Ekle'}
                   </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="name">Ad Soyad *</Label>
@@ -188,25 +202,49 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
                   </div>
 
                   <div>
-                    <Label>Müsait Saatler</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto">
-                      {timeSlots.map(timeSlot => (
-                        <div
-                          key={timeSlot}
-                          className={`p-2 border rounded cursor-pointer text-center text-sm transition-colors ${
-                            formData.availableHours.includes(timeSlot)
-                              ? 'bg-blue-100 border-blue-300 text-blue-800'
-                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                          }`}
-                          onClick={() => toggleAvailableHour(timeSlot)}
-                        >
-                          {timeSlot}
-                        </div>
+                    <Label className="flex items-center space-x-2 mb-4">
+                      <Calendar className="h-4 w-4" />
+                      <span>Günlük Müsait Saatler</span>
+                    </Label>
+                    
+                    <Tabs defaultValue="Pazartesi" className="w-full">
+                      <TabsList className="grid w-full grid-cols-7">
+                        {weekDays.map(day => (
+                          <TabsTrigger key={day} value={day} className="text-xs">
+                            {day.slice(0, 3)}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                      
+                      {weekDays.map(day => (
+                        <TabsContent key={day} value={day} className="mt-4">
+                          <div className="space-y-2">
+                            <h4 className="font-medium">{day} - Müsait Saatler</h4>
+                            <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+                              {timeSlots.map(timeSlot => {
+                                const isSelected = (formData.availableHours[day] || []).includes(timeSlot);
+                                return (
+                                  <div
+                                    key={timeSlot}
+                                    className={`p-2 border rounded cursor-pointer text-center text-sm transition-colors ${
+                                      isSelected
+                                        ? 'bg-blue-100 border-blue-300 text-blue-800'
+                                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                    }`}
+                                    onClick={() => toggleDayTimeSlot(day, timeSlot)}
+                                  >
+                                    {timeSlot}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <p className="text-xs text-gray-600">
+                              {day} günü için {(formData.availableHours[day] || []).length} saat seçildi
+                            </p>
+                          </div>
+                        </TabsContent>
                       ))}
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Tıklayarak müsait saatleri seçin ({formData.availableHours.length} saat seçildi)
-                    </p>
+                    </Tabs>
                   </div>
 
                   <div className="flex justify-end space-x-2">
@@ -280,16 +318,14 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
                   <div>
                     <h3 className="font-semibold text-lg">{teacher.name}</h3>
                     <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span className="flex items-center space-x-1">
-                        <Badge variant="secondary">{teacher.subject}</Badge>
-                      </span>
+                      <Badge variant="secondary">{teacher.subject}</Badge>
                       <span className="flex items-center space-x-1">
                         <Mail className="h-3 w-3" />
                         <span>{teacher.email}</span>
                       </span>
                       <span className="flex items-center space-x-1">
                         <Clock className="h-3 w-3" />
-                        <span>{teacher.availableHours.length} müsait saat</span>
+                        <span>{getTotalAvailableHours(teacher)} müsait saat</span>
                       </span>
                       <span className="flex items-center space-x-1">
                         <Users className="h-3 w-3" />
@@ -317,23 +353,21 @@ export const TeacherManagement: React.FC<TeacherManagementProps> = ({
                 </div>
               </div>
 
-              {teacher.availableHours.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Müsait Saatler:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {teacher.availableHours.slice(0, 8).map(hour => (
-                      <Badge key={hour} variant="outline" className="text-xs">
-                        {hour}
-                      </Badge>
-                    ))}
-                    {teacher.availableHours.length > 8 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{teacher.availableHours.length - 8} daha
-                      </Badge>
-                    )}
-                  </div>
+              {/* Günlük program özeti */}
+              <div className="mt-3">
+                <p className="text-sm font-medium text-gray-700 mb-2">Günlük Program:</p>
+                <div className="grid grid-cols-7 gap-1">
+                  {weekDays.map(day => {
+                    const dayHours = teacher.availableHours[day] || [];
+                    return (
+                      <div key={day} className="text-center">
+                        <div className="text-xs font-medium text-gray-600">{day.slice(0, 3)}</div>
+                        <div className="text-xs text-blue-600">{dayHours.length} saat</div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         ))}
