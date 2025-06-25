@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FileSpreadsheet, Download, BarChart3, PieChart, TrendingUp, Calendar, Search, User, Users, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -579,12 +580,6 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               <div className="flex justify-between">
                 <span>Aktif Dersler:</span>
                 <Badge variant="outline">{new Set(teachers.map(t => t.subject)).size}</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Yasaklı Öğrenci:</span>
-                <Badge variant="destructive">
-                  {students.filter(s => s.isBanned).length}
-                </Badge>
               </div>
               <div className="flex justify-between">
                 <span>Başarı Oranı:</span>

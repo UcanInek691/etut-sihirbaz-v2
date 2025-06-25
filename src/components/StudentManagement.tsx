@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Search, Calendar, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Calendar, CheckCircle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Student, Session, isStudentBanned } from '@/utils/sessionValidation';
+import { Student, Session } from '@/utils/sessionValidation';
 import { format } from 'date-fns';
 
 interface StudentManagementProps {
@@ -86,8 +86,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
         name: formData.name,
         class: formData.class,
         studentNumber: formData.studentNumber,
-        isBanned: false,
-        banEndDate: null,
         totalSessions: 0
       };
       setStudents([...students, newStudent]);
@@ -128,21 +126,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
     setIsDetailDialogOpen(true);
   };
 
-  const removeBan = (studentId: string) => {
-    const updatedStudents = students.map(student =>
-      student.id === studentId
-        ? { ...student, isBanned: false, banEndDate: null }
-        : student
-    );
-    setStudents(updatedStudents);
-    
-    const student = students.find(s => s.id === studentId);
-    toast({
-      title: "Yasak Kaldırıldı",
-      description: `${student?.name} artık etüt alabilir.`
-    });
-  };
-
   // Arama filtreleme
   const filteredStudents = students.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -164,9 +147,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
       scheduled: studentSessions.filter(s => s.status === 'scheduled').length
     };
   };
-
-  const bannedStudents = students.filter(isStudentBanned);
-  const activeStudents = students.filter(s => !isStudentBanned(s));
 
   return (
     <div className="space-y-6">
@@ -256,19 +236,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
             <div className="flex items-center space-x-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
               <div>
-                <p className="text-sm text-gray-600">Aktif Öğrenci</p>
-                <p className="text-2xl font-bold">{activeStudents.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <div>
-                <p className="text-sm text-gray-600">Yasaklı Öğrenci</p>
-                <p className="text-2xl font-bold">{bannedStudents.length}</p>
+                <p className="text-sm text-gray-600">Toplam Öğrenci</p>
+                <p className="text-2xl font-bold">{students.length}</p>
               </div>
             </div>
           </CardContent>
@@ -289,7 +258,20 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-purple-600" />
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm text-gray-600">Tamamlanan</p>
+                <p className="text-2xl font-bold">
+                  {students.reduce((sum, student) => sum + getStudentStats(student.id).completed, 0)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <Clock className="h-5 w-5 text-red-600" />
               <div>
                 <p className="text-sm text-gray-600">Devamsızlık</p>
                 <p className="text-2xl font-bold">
@@ -301,54 +283,18 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
         </Card>
       </div>
 
-      {/* Yasaklı Öğrenciler */}
-      {bannedStudents.length > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-red-800">Yasaklı Öğrenciler</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {bannedStudents.map(student => (
-                <div key={student.id} className="flex items-center justify-between bg-white p-3 rounded border">
-                  <div>
-                    <span className="font-medium">{student.name}</span>
-                    <span className="text-sm text-gray-600 ml-2">({student.class})</span>
-                    <Badge variant="destructive" className="ml-2">
-                      Bitiş: {student.banEndDate?.toLocaleDateString('tr-TR')}
-                    </Badge>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => removeBan(student.id)}
-                  >
-                    Yasakı Kaldır
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Öğrenci Listesi */}
       <div className="grid gap-4">
         {filteredStudents.map(student => {
           const stats = getStudentStats(student.id);
-          const banned = isStudentBanned(student);
           
           return (
-            <Card key={student.id} className={`hover:shadow-md transition-shadow ${banned ? 'border-red-200 bg-red-50' : ''}`}>
+            <Card key={student.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      banned ? 'bg-red-100' : 'bg-blue-100'
-                    }`}>
-                      <span className={`font-semibold text-lg ${
-                        banned ? 'text-red-600' : 'text-blue-600'
-                      }`}>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-100">
+                      <span className="font-semibold text-lg text-blue-600">
                         {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </span>
                     </div>
@@ -357,11 +303,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
                         <span>Sınıf: {student.class}</span>
                         <span>No: {student.studentNumber}</span>
-                        {banned && (
-                          <Badge variant="destructive">
-                            Yasaklı - {student.banEndDate?.toLocaleDateString('tr-TR')}
-                          </Badge>
-                        )}
                       </div>
                       <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
                         <span>Toplam: {stats.total}</span>
@@ -441,11 +382,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                   <h4 className="font-medium">Öğrenci Bilgileri</h4>
                   <p className="text-sm">Sınıf: {selectedStudent.class}</p>
                   <p className="text-sm">No: {selectedStudent.studentNumber}</p>
-                  {isStudentBanned(selectedStudent) && (
-                    <Badge variant="destructive" className="mt-1">
-                      Yasaklı - {selectedStudent.banEndDate?.toLocaleDateString('tr-TR')}
-                    </Badge>
-                  )}
                 </div>
                 <div>
                   <h4 className="font-medium">İstatistikler</h4>

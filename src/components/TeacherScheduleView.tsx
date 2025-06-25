@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { Calendar, Clock, Users, CheckCircle, X, Trash2, User, AlertTriangle, Edit } from 'lucide-react';
@@ -7,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student, isTeacherAvailableOnDay } from '@/utils/sessionValidation';
+import { validateSessionAssignment, getWeekYear, Session, Teacher, Student, isTeacherAvailableOnDay } from '@/utils/sessionValidation';
 import { LocalStorageManager } from '@/utils/localStorage';
 import { TimeSlotManager } from '@/utils/timeSlotManager';
 
@@ -183,7 +184,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
     });
   };
 
-  // Öğrenci gelmedi işaretleme - DÜZELTİLDİ
+  // Öğrenci gelmedi işaretleme - Sadece devamsızlık kaydı
   const markStudentAbsent = (sessionId: string) => {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
@@ -191,7 +192,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
     const student = students.find(s => s.id === session.studentId);
     if (!student) return;
 
-    // 1. Session'ı absent olarak işaretle
+    // Session'ı absent olarak işaretle
     const updatedSessions = sessions.map(s => {
       if (s.id === sessionId) {
         return { ...s, status: 'absent' as const };
@@ -199,22 +200,12 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
       return s;
     });
 
-    // 2. Öğrenciyi ban'le
-    const bannedStudent = banStudentFromAllSubjects(student);
-    const updatedStudents = students.map(s => 
-      s.id === student.id ? bannedStudent : s
-    );
-
-    // 3. State'leri güncelle
     setSessions(updatedSessions);
-    setStudents(updatedStudents);
-
-    // 4. OTOMATIK KAYDETME
-    LocalStorageManager.autoSaveAll(updatedSessions, teachers, updatedStudents);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
       title: "Devamsızlık İşaretlendi",
-      description: `${student.name} 2 hafta TÜM DERSLERDEN yasaklandı!`,
+      description: `${student.name} için devamsızlık kaydedildi.`,
       variant: "destructive"
     });
   };
@@ -350,8 +341,6 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
     );
   };
 
-  const availableStudents = students.filter(student => !isStudentBanned(student));
-
   return (
     <div className="space-y-6">
       {/* Öğretmen Seçimi */}
@@ -460,7 +449,7 @@ export const TeacherScheduleView: React.FC<TeacherScheduleViewProps> = ({
                   <SelectValue placeholder="Öğrenci seçin..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableStudents.map(student => (
+                  {students.map(student => (
                     <SelectItem key={student.id} value={student.id}>
                       {student.name} - {student.class}
                     </SelectItem>

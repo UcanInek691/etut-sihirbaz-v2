@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { Calendar, Clock, Users, AlertTriangle, CheckCircle, X, Edit } from 'lucide-react';
@@ -8,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { validateSessionAssignment, getWeekYear, isStudentBanned, banStudentFromAllSubjects, Session, Teacher, Student } from '@/utils/sessionValidation';
+import { validateSessionAssignment, getWeekYear, Session, Teacher, Student } from '@/utils/sessionValidation';
 import { LocalStorageManager } from '@/utils/localStorage';
 import { TimeSlotManager } from '@/utils/timeSlotManager';
 
@@ -150,7 +151,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     setSessionNotes('');
   };
 
-  // Öğrenci gelmedi işaretleme - BU KISIM DÜZELTİLDİ
+  // Öğrenci gelmedi işaretleme - Sadece devamsızlık kaydı
   const markStudentAbsent = (sessionId: string) => {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
@@ -158,7 +159,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     const student = students.find(s => s.id === session.studentId);
     if (!student) return;
 
-    // 1. Session'ı absent olarak işaretle
+    // Session'ı absent olarak işaretle
     const updatedSessions = sessions.map(s => {
       if (s.id === sessionId) {
         return { ...s, status: 'absent' as const };
@@ -166,22 +167,12 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
       return s;
     });
 
-    // 2. Öğrenciyi ban'le
-    const bannedStudent = banStudentFromAllSubjects(student);
-    const updatedStudents = students.map(s => 
-      s.id === student.id ? bannedStudent : s
-    );
-
-    // 3. State'leri güncelle
     setSessions(updatedSessions);
-    setStudents(updatedStudents);
-
-    // 4. OTOMATIK KAYDETME
-    LocalStorageManager.autoSaveAll(updatedSessions, teachers, updatedStudents);
+    LocalStorageManager.autoSaveAll(updatedSessions, teachers, students);
 
     toast({
       title: "Devamsızlık İşaretlendi",
-      description: `${student.name} 2 hafta TÜM DERSLERDEN yasaklandı!`,
+      description: `${student.name} için devamsızlık kaydedildi.`,
       variant: "destructive"
     });
   };
@@ -342,10 +333,6 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
     );
   };
 
-  // Yasaklı öğrencileri filtrele
-  const availableStudents = students.filter(student => !isStudentBanned(student));
-  const bannedStudents = students.filter(student => isStudentBanned(student));
-
   return (
     <div className="space-y-6">
       {/* Hafta Navigasyonu */}
@@ -376,25 +363,6 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
           </CardTitle>
         </CardHeader>
       </Card>
-
-      {/* Yasaklı Öğrenciler Uyarısı */}
-      {bannedStudents.length > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2 text-red-800">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="font-medium">Yasaklı Öğrenciler ({bannedStudents.length})</span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {bannedStudents.map(student => (
-                <Badge key={student.id} variant="destructive">
-                  {student.name} (Bitiş: {student.banEndDate?.toLocaleDateString('tr-TR')})
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Program Grid */}
       <Card>
@@ -465,7 +433,7 @@ export const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({
                   <SelectValue placeholder="Öğrenci seçin..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableStudents.map(student => (
+                  {students.map(student => (
                     <SelectItem key={student.id} value={student.id}>
                       {student.name} - {student.class}
                     </SelectItem>
