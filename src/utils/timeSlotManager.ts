@@ -56,9 +56,6 @@ export class TimeSlotManager {
     };
     timeSlots.push(newSlot);
     this.saveTimeSlots(timeSlots);
-    
-    // Yeni saat dilimini öğretmenlerin müsaitlik saatlerine ekle
-    this.addTimeSlotToTeachers(`${startTime}-${endTime}`);
   }
 
   static updateTimeSlot(id: string, updates: Partial<TimeSlot>): void {
@@ -75,22 +72,29 @@ export class TimeSlotManager {
     this.saveTimeSlots(timeSlots);
   }
 
-  // Yeni saat dilimini öğretmenlerin müsaitlik listesine ekle
-  static addTimeSlotToTeachers(timeSlotString: string): void {
+  // Mevcut öğretmenlerin müsaitlik listesini yeni saat dilimleriyle güncelle
+  static refreshTeacherAvailability(): void {
+    const currentTimeSlots = this.getTimeSlotStrings();
     const teachers = JSON.parse(localStorage.getItem('etut_teachers') || '[]');
-    const updatedTeachers = teachers.map((teacher: any) => ({
-      ...teacher,
-      availableHours: {
-        ...teacher.availableHours,
-        'Pazartesi': [...(teacher.availableHours?.Pazartesi || [])],
-        'Salı': [...(teacher.availableHours?.Salı || [])],
-        'Çarşamba': [...(teacher.availableHours?.Çarşamba || [])],
-        'Perşembe': [...(teacher.availableHours?.Perşembe || [])],
-        'Cuma': [...(teacher.availableHours?.Cuma || [])],
-        'Cumartesi': [...(teacher.availableHours?.Cumartesi || [])],
-        'Pazar': [...(teacher.availableHours?.Pazar || [])]
-      }
-    }));
+    
+    const updatedTeachers = teachers.map((teacher: any) => {
+      const currentAvailableHours = teacher.availableHours || {};
+      
+      // Her gün için mevcut saat dilimlerini kontrol et ve eksik olanları ekle
+      const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+      
+      weekDays.forEach(day => {
+        if (!currentAvailableHours[day]) {
+          currentAvailableHours[day] = [];
+        }
+      });
+
+      return {
+        ...teacher,
+        availableHours: currentAvailableHours
+      };
+    });
+    
     localStorage.setItem('etut_teachers', JSON.stringify(updatedTeachers));
   }
 }

@@ -40,6 +40,7 @@ export const TimeSlotManagement: React.FC = () => {
     }
 
     TimeSlotManager.addTimeSlot(newStartTime, newEndTime);
+    TimeSlotManager.refreshTeacherAvailability(); // Öğretmen müsaitliklerini güncelle
     setTimeSlots(TimeSlotManager.getTimeSlots());
     setNewStartTime('');
     setNewEndTime('');
@@ -47,7 +48,7 @@ export const TimeSlotManagement: React.FC = () => {
 
     toast({
       title: "Saat Dilimi Eklendi",
-      description: `${newStartTime}-${newEndTime} saat dilimi eklendi.`,
+      description: `${newStartTime}-${newEndTime} saat dilimi eklendi ve öğretmen müsaitlikleri güncellendi.`,
     });
   };
 
