@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, Users, GraduationCap, FileSpreadsheet, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +34,6 @@ const Index = () => {
       setTeachers(savedTeachers);
       console.log(`✅ ${savedTeachers.length} öğretmen yüklendi`);
     } else {
-      // Güncellenmiş örnek veriler - yeni dersler dahil
       const sampleTeachers: Teacher[] = [
         { 
           id: '1', 
@@ -103,8 +101,8 @@ const Index = () => {
       console.log(`✅ ${savedStudents.length} öğrenci yüklendi`);
     } else {
       const sampleStudents: Student[] = [
-        { id: '1', name: 'Ali Veli', class: '9-A', studentNumber: '001', isBanned: false, banEndDate: null, totalSessions: 0 },
-        { id: '2', name: 'Fatma Yılmaz', class: '10-B', studentNumber: '002', isBanned: false, banEndDate: null, totalSessions: 0 }
+        { id: '1', name: 'Ali Veli', class: '9-A', studentNumber: '001', totalSessions: 0 },
+        { id: '2', name: 'Fatma Yılmaz', class: '10-B', studentNumber: '002', totalSessions: 0 }
       ];
       setStudents(sampleStudents);
       LocalStorageManager.saveStudents(sampleStudents);

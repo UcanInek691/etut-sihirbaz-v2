@@ -1,3 +1,4 @@
+
 import { Session, Teacher, Student } from './sessionValidation';
 import { TimeSlot } from './timeSlotManager';
 
@@ -9,7 +10,7 @@ const STORAGE_KEYS = {
 };
 
 export class LocalStorageManager {
-  // Sessions - güncellenmiş notes desteği ile
+  // Sessions
   static saveSessions(sessions: Session[]): void {
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
   }
@@ -22,7 +23,7 @@ export class LocalStorageManager {
       ...session,
       date: new Date(session.date),
       createdAt: new Date(session.createdAt),
-      notes: session.notes || '' // Not alanını da yükle
+      notes: session.notes || ''
     }));
   }
 
@@ -37,7 +38,7 @@ export class LocalStorageManager {
     return JSON.parse(data);
   }
 
-  // Students
+  // Students - ban sistemi kaldırıldı
   static saveStudents(students: Student[]): void {
     localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
   }
@@ -45,11 +46,7 @@ export class LocalStorageManager {
   static loadStudents(): Student[] {
     const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
     if (!data) return [];
-    
-    return JSON.parse(data).map((student: any) => ({
-      ...student,
-      banEndDate: student.banEndDate ? new Date(student.banEndDate) : null
-    }));
+    return JSON.parse(data);
   }
 
   // Auto-save all data

@@ -1,8 +1,9 @@
-
 import React, { useState } from 'react';
-import { FileSpreadsheet, Download, BarChart3, PieChart, TrendingUp, Calendar } from 'lucide-react';
+import { FileSpreadsheet, Download, BarChart3, PieChart, TrendingUp, Calendar, Search, User, Users, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, LineChart, Line } from 'recharts';
@@ -22,8 +23,13 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
   sessions
 }) => {
   const [isExporting, setIsExporting] = useState(false);
+  const [searchTeacher, setSearchTeacher] = useState('');
+  const [searchStudent, setSearchStudent] = useState('');
+  const [searchClass, setSearchClass] = useState('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
 
-  // Excel Export
+  // Excel Export fonksiyonları
   const handleExportTeachers = async () => {
     setIsExporting(true);
     try {
@@ -78,6 +84,108 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
     setIsExporting(false);
   };
 
+  // Yeni arama fonksiyonları
+  const handleSearchTeacher = async () => {
+    if (!searchTeacher.trim()) {
+      toast({
+        title: "Uyarı",
+        description: "Lütfen öğretmen adı girin.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      excelManager.exportTeacherHistory(searchTeacher, sessions, teachers, students);
+      toast({
+        title: "Öğretmen Geçmişi İndirildi",
+        description: `${searchTeacher} için etüt geçmişi indirildi.`
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Öğretmen bulunamadı veya hata oluştu.",
+        variant: "destructive"
+      });
+    }
+    setIsExporting(false);
+  };
+
+  const handleSearchStudent = async () => {
+    if (!searchStudent.trim()) {
+      toast({
+        title: "Uyarı",
+        description: "Lütfen öğrenci adı girin.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      excelManager.exportStudentHistory(searchStudent, sessions, teachers, students);
+      toast({
+        title: "Öğrenci Geçmişi İndirildi",
+        description: `${searchStudent} için etüt geçmişi indirildi.`
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Öğrenci bulunamadı veya hata oluştu.",
+        variant: "destructive"
+      });
+    }
+    setIsExporting(false);
+  };
+
+  const handleExportMonthly = async () => {
+    setIsExporting(true);
+    try {
+      excelManager.exportMonthlyData(parseInt(selectedYear), parseInt(selectedMonth), sessions, teachers, students);
+      const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+                         'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+      toast({
+        title: "Aylık Rapor İndirildi",
+        description: `${selectedYear} ${monthNames[parseInt(selectedMonth)-1]} ayı raporu indirildi.`
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Aylık rapor oluşturulurken hata oluştu.",
+        variant: "destructive"
+      });
+    }
+    setIsExporting(false);
+  };
+
+  const handleSearchClass = async () => {
+    if (!searchClass.trim()) {
+      toast({
+        title: "Uyarı",
+        description: "Lütfen sınıf adı girin.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      excelManager.exportClassHistory(searchClass, sessions, teachers, students);
+      toast({
+        title: "Sınıf Geçmişi İndirildi",
+        description: `${searchClass} sınıfı için etüt geçmişi indirildi.`
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Sınıf bulunamadı veya hata oluştu.",
+        variant: "destructive"
+      });
+    }
+    setIsExporting(false);
+  };
+
   // İstatistikler
   const totalSessions = sessions.length;
   const completedSessions = sessions.filter(s => s.status === 'completed').length;
@@ -88,7 +196,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
   const teacherData = teachers.map(teacher => {
     const teacherSessions = sessions.filter(s => s.teacherId === teacher.id);
     return {
-      name: teacher.name.split(' ')[0], // Sadece isim
+      name: teacher.name.split(' ')[0],
       etutSayisi: teacherSessions.length,
       subject: teacher.subject
     };
@@ -132,6 +240,15 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
   // Renkler
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
+  // Yıl seçenekleri
+  const years = Array.from({length: 5}, (_, i) => (new Date().getFullYear() - 2 + i).toString());
+  const months = [
+    { value: '1', label: 'Ocak' }, { value: '2', label: 'Şubat' }, { value: '3', label: 'Mart' },
+    { value: '4', label: 'Nisan' }, { value: '5', label: 'Mayıs' }, { value: '6', label: 'Haziran' },
+    { value: '7', label: 'Temmuz' }, { value: '8', label: 'Ağustos' }, { value: '9', label: 'Eylül' },
+    { value: '10', label: 'Ekim' }, { value: '11', label: 'Kasım' }, { value: '12', label: 'Aralık' }
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -173,6 +290,111 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
           </CardTitle>
         </CardHeader>
       </Card>
+
+      {/* Gelişmiş Arama ve Filtreleme */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Öğretmen/Öğrenci Arama */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Search className="h-5 w-5" />
+              <span>Kişisel Etüt Geçmişi</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Öğretmen adı ara..."
+                value={searchTeacher}
+                onChange={(e) => setSearchTeacher(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSearchTeacher}
+                disabled={isExporting}
+                className="flex items-center space-x-2"
+              >
+                <User className="h-4 w-4" />
+                <span>Öğretmen Ara</span>
+              </Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Öğrenci adı ara..."
+                value={searchStudent}
+                onChange={(e) => setSearchStudent(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSearchStudent}
+                disabled={isExporting}
+                className="flex items-center space-x-2"
+              >
+                <User className="h-4 w-4" />
+                <span>Öğrenci Ara</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Aylık ve Sınıf Raporları */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Filter className="h-5 w-5" />
+              <span>Dönemsel ve Sınıf Raporları</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map(year => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map(month => (
+                    <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleExportMonthly}
+                disabled={isExporting}
+                className="flex items-center space-x-2"
+              >
+                <Calendar className="h-4 w-4" />
+                <span>Aylık Rapor</span>
+              </Button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Sınıf ara (örn: 9-A, 10-B)..."
+                value={searchClass}
+                onChange={(e) => setSearchClass(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSearchClass}
+                disabled={isExporting}
+                className="flex items-center space-x-2"
+              >
+                <Users className="h-4 w-4" />
+                <span>Sınıf Ara</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Genel İstatistikler */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -222,72 +444,70 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Öğretmen Etüt Dağılımı */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <BarChart3 className="h-5 w-5" />
-              <span>Öğretmen Etüt Dağılımı</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={teacherData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value, name, props) => [
-                    value, 
-                    `Etüt Sayısı (${props.payload.subject})`
-                  ]}
-                />
-                <Bar dataKey="etutSayisi" fill="#3B82F6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {/* Öğretmen Etüt Dağılımı */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <BarChart3 className="h-5 w-5" />
+            <span>Öğretmen Etüt Dağılımı</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={teacherData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip 
+                formatter={(value, name, props) => [
+                  value, 
+                  `Etüt Sayısı (${props.payload.subject})`
+                ]}
+              />
+              <Bar dataKey="etutSayisi" fill="#3B82F6" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-        {/* Ders Bazında Dağılım */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <PieChart className="h-5 w-5" />
-              <span>Ders Bazında Dağılım</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPieChart>
-                <RechartsPieChart
-                  data={subjectData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {subjectData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </RechartsPieChart>
-                <Tooltip formatter={(value) => [value, 'Etüt Sayısı']} />
+      {/* Ders Bazında Dağılım */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <PieChart className="h-5 w-5" />
+            <span>Ders Bazında Dağılım</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartsPieChart>
+              <RechartsPieChart
+                data={subjectData}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                dataKey="value"
+              >
+                {subjectData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
               </RechartsPieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {subjectData.map((subject, index) => (
-                <div key={subject.subject} className="flex items-center space-x-2">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                  ></div>
-                  <span className="text-sm">{subject.subject}: {subject.value}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              <Tooltip formatter={(value) => [value, 'Etüt Sayısı']} />
+            </RechartsPieChart>
+          </ResponsiveContainer>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {subjectData.map((subject, index) => (
+              <div key={subject.subject} className="flex items-center space-x-2">
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                ></div>
+                <span className="text-sm">{subject.subject}: {subject.value}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Aylık Trend */}
       <Card>
@@ -370,6 +590,12 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
                 <span>Başarı Oranı:</span>
                 <Badge variant="default">
                   {totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0}%
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>Devamsızlık Oranı:</span>
+                <Badge variant="destructive">
+                  {totalSessions > 0 ? Math.round((absentSessions / totalSessions) * 100) : 0}%
                 </Badge>
               </div>
             </div>

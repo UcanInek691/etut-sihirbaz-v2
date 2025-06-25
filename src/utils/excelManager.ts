@@ -11,6 +11,7 @@ export interface TeacherSessionRecord {
   Ders: string;
   Durum: string;
   Hafta: string;
+  Notlar: string;
 }
 
 export interface StudentSessionRecord {
@@ -22,12 +23,8 @@ export interface StudentSessionRecord {
   Ders: string;
   Durum: string;
   Hafta: string;
+  Notlar: string;
 }
-
-/**
- * OTOMATIK EXCEL KAYDETME SİSTEMİ
- * Her etüt işlemi sonrası Excel dosyaları otomatik güncellenir
- */
 
 export class ExcelManager {
   private static instance: ExcelManager;
@@ -54,7 +51,8 @@ export class ExcelManager {
         'Öğrenci Adı': student?.name || 'Bilinmeyen',
         'Ders': session.subject,
         'Durum': this.getStatusText(session.status),
-        'Hafta': session.weekYear
+        'Hafta': session.weekYear,
+        'Notlar': session.notes || ''
       };
     });
 
@@ -77,11 +75,124 @@ export class ExcelManager {
         'Öğretmen': teacher?.name || 'Bilinmeyen',
         'Ders': session.subject,
         'Durum': this.getStatusText(session.status),
-        'Hafta': session.weekYear
+        'Hafta': session.weekYear,
+        'Notlar': session.notes || ''
       };
     });
 
     this.downloadExcelFile(studentRecords, 'ogrenci_etutleri.xlsx');
+  }
+
+  /**
+   * Belirli bir öğretmenin etüt geçmişini Excel olarak indir
+   */
+  exportTeacherHistory(teacherName: string, sessions: Session[], teachers: Teacher[], students: Student[]): void {
+    const teacher = teachers.find(t => t.name.toLowerCase().includes(teacherName.toLowerCase()));
+    if (!teacher) return;
+
+    const teacherSessions = sessions.filter(s => s.teacherId === teacher.id);
+    const records: TeacherSessionRecord[] = teacherSessions.map(session => {
+      const student = students.find(s => s.id === session.studentId);
+      
+      return {
+        'Tarih': format(session.date, 'dd.MM.yyyy'),
+        'Saat': session.timeSlot,
+        'Öğretmen Adı': teacher.name,
+        'Öğrenci Adı': student?.name || 'Bilinmeyen',
+        'Ders': session.subject,
+        'Durum': this.getStatusText(session.status),
+        'Hafta': session.weekYear,
+        'Notlar': session.notes || ''
+      };
+    });
+
+    this.downloadExcelFile(records, `${teacher.name.replace(' ', '_')}_etut_gecmisi.xlsx`);
+  }
+
+  /**
+   * Belirli bir öğrencinin etüt geçmişini Excel olarak indir
+   */
+  exportStudentHistory(studentName: string, sessions: Session[], teachers: Teacher[], students: Student[]): void {
+    const student = students.find(s => s.name.toLowerCase().includes(studentName.toLowerCase()));
+    if (!student) return;
+
+    const studentSessions = sessions.filter(s => s.studentId === student.id);
+    const records: StudentSessionRecord[] = studentSessions.map(session => {
+      const teacher = teachers.find(t => t.id === session.teacherId);
+      
+      return {
+        'Tarih': format(session.date, 'dd.MM.yyyy'),
+        'Saat': session.timeSlot,
+        'Öğrenci Adı': student.name,
+        'Sınıf': student.class,
+        'Öğretmen': teacher?.name || 'Bilinmeyen',
+        'Ders': session.subject,
+        'Durum': this.getStatusText(session.status),
+        'Hafta': session.weekYear,
+        'Notlar': session.notes || ''
+      };
+    });
+
+    this.downloadExcelFile(records, `${student.name.replace(' ', '_')}_etut_gecmisi.xlsx`);
+  }
+
+  /**
+   * Belirli bir ayın etüt verilerini Excel olarak indir
+   */
+  exportMonthlyData(year: number, month: number, sessions: Session[], teachers: Teacher[], students: Student[]): void {
+    const monthlySessions = sessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate.getFullYear() === year && sessionDate.getMonth() === month - 1;
+    });
+
+    const records: StudentSessionRecord[] = monthlySessions.map(session => {
+      const teacher = teachers.find(t => t.id === session.teacherId);
+      const student = students.find(s => s.id === session.studentId);
+      
+      return {
+        'Tarih': format(session.date, 'dd.MM.yyyy'),
+        'Saat': session.timeSlot,
+        'Öğrenci Adı': student?.name || 'Bilinmeyen',
+        'Sınıf': student?.class || 'Bilinmeyen',
+        'Öğretmen': teacher?.name || 'Bilinmeyen',
+        'Ders': session.subject,
+        'Durum': this.getStatusText(session.status),
+        'Hafta': session.weekYear,
+        'Notlar': session.notes || ''
+      };
+    });
+
+    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+                       'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+    this.downloadExcelFile(records, `${year}_${monthNames[month-1]}_etutleri.xlsx`);
+  }
+
+  /**
+   * Belirli sınıfların etüt geçmişini Excel olarak indir
+   */
+  exportClassHistory(className: string, sessions: Session[], teachers: Teacher[], students: Student[]): void {
+    const classStudents = students.filter(s => s.class.toLowerCase().includes(className.toLowerCase()));
+    const studentIds = classStudents.map(s => s.id);
+    
+    const classSessions = sessions.filter(s => studentIds.includes(s.studentId));
+    const records: StudentSessionRecord[] = classSessions.map(session => {
+      const teacher = teachers.find(t => t.id === session.teacherId);
+      const student = students.find(s => s.id === session.studentId);
+      
+      return {
+        'Tarih': format(session.date, 'dd.MM.yyyy'),
+        'Saat': session.timeSlot,
+        'Öğrenci Adı': student?.name || 'Bilinmeyen',
+        'Sınıf': student?.class || 'Bilinmeyen',
+        'Öğretmen': teacher?.name || 'Bilinmeyen',
+        'Ders': session.subject,
+        'Durum': this.getStatusText(session.status),
+        'Hafta': session.weekYear,
+        'Notlar': session.notes || ''
+      };
+    });
+
+    this.downloadExcelFile(records, `${className.replace('-', '_')}_sinifi_etut_gecmisi.xlsx`);
   }
 
   /**
@@ -90,10 +201,8 @@ export class ExcelManager {
   autoSaveAllExcelFiles(sessions: Session[], teachers: Teacher[], students: Student[]): void {
     console.log('🔄 Otomatik Excel kaydetme başlatılıyor...');
     
-    // Öğretmen Excel dosyası
     this.exportTeacherSessions(sessions, teachers, students);
     
-    // 1 saniye bekle, sonra öğrenci Excel dosyası
     setTimeout(() => {
       this.exportStudentSessions(sessions, teachers, students);
       console.log('✅ Excel dosyaları başarıyla güncellendi ve indirildi!');
@@ -108,7 +217,6 @@ export class ExcelManager {
       const worksheet = XLSX.utils.json_to_sheet(data);
       const workbook = XLSX.utils.book_new();
       
-      // Sütun genişliklerini ayarla
       const columnWidths = [
         { wpx: 100 }, // Tarih
         { wpx: 120 }, // Saat
@@ -117,13 +225,12 @@ export class ExcelManager {
         { wpx: 150 }, // Öğretmen/Öğrenci
         { wpx: 120 }, // Ders/Durum
         { wpx: 100 }, // Durum/Hafta
-        { wpx: 100 }  // Hafta
+        { wpx: 100 }, // Hafta
+        { wpx: 200 }  // Notlar
       ];
       worksheet['!cols'] = columnWidths;
       
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Etütler');
-      
-      // Dosyayı indir
       XLSX.writeFile(workbook, filename);
       
     } catch (error) {
@@ -170,5 +277,4 @@ export class ExcelManager {
   }
 }
 
-// Singleton instance
 export const excelManager = ExcelManager.getInstance();
